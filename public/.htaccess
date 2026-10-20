@@ -1,0 +1,55 @@
+# ==========================================================================
+# Crispo — Apache configuration for the production build.
+# Deploy the contents of dist/ to the document root and rename this file to
+# .htaccess.
+#
+# Two jobs:
+#   1. Serve the correct MIME types (a wrong type for a .js file stops the
+#      browser from executing the module and the whole app stays blank).
+#   2. Rewrite unknown paths to index.html so React Router routes resolve.
+# ==========================================================================
+
+# --- Correct MIME types --------------------------------------------------
+<IfModule mod_mime.c>
+  RemoveType .js .mjs .css .svg .woff .woff2 .ttf .otf
+  AddType text/javascript .js .mjs
+  AddType text/css .css
+  AddType image/svg+xml .svg
+  AddType font/woff .woff
+  AddType font/woff2 .woff2
+  AddType font/ttf .ttf
+  AddType font/otf .otf
+</IfModule>
+
+# --- Single-page-app fallback --------------------------------------------
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+
+  # Leave real files and directories alone.
+  RewriteCond %{REQUEST_FILENAME} -f [OR]
+  RewriteCond %{REQUEST_FILENAME} -d
+  RewriteRule ^ - [L]
+
+  # Everything else is a client-side route.
+  RewriteRule ^ index.html [L]
+</IfModule>
+
+# --- Caching -------------------------------------------------------------
+<IfModule mod_expires.c>
+  ExpiresActive On
+  ExpiresByType text/css "access plus 1 year"
+  ExpiresByType application/javascript "access plus 1 year"
+  ExpiresByType text/javascript "access plus 1 year"
+  ExpiresByType image/svg+xml "access plus 1 year"
+  ExpiresByType image/png "access plus 1 year"
+  ExpiresByType image/jpeg "access plus 1 year"
+  ExpiresByType font/woff2 "access plus 1 year"
+  ExpiresByType font/woff "access plus 1 year"
+</IfModule>
+
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/css text/javascript application/javascript image/svg+xml
+</IfModule>
+
+DirectoryIndex index.html

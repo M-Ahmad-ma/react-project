@@ -22,9 +22,88 @@ CSS v4, keeping the design system **pixel-for-pixel identical**.
 
 ```bash
 npm install
-npm run dev      # http://localhost:5173
-npm run build    # -> dist/
-npm run preview  # serve the production build
+
+npm run dev      # development  -> http://localhost:5173
+npm run build    # production build -> dist/
+npm run serve    # serve dist/ with correct MIME types + SPA fallback
+```
+
+> **Do not open `index.html` straight from the file system, and do not point a
+> plain static file server at the project root.** See
+> [Troubleshooting](#troubleshooting) — it is the single most common way to
+> end up with a blank page.
+
+---
+
+## Running the site
+
+There are three ways to run it, and they are not interchangeable:
+
+| Command | Serves | Use it for |
+|---|---|---|
+| `npm run dev` | The source, transformed on the fly by Vite | Day-to-day development |
+| `npm run serve` | The built `dist/` over HTTP | Checking the production build locally |
+| `npm run build` | Writes `dist/` | Deploying |
+
+`npm run serve` starts `scripts/serve.mjs`, a small dependency-free static
+server that:
+
+- serves **only** the contents of `dist/`, never the source
+- sends an explicit `Content-Type` for every file type
+- rewrites unknown paths to `index.html` so `/flavors` and `/jobs/:slug` work
+
+```bash
+npm run build
+npm run serve                 # -> http://localhost:4173
+npm run serve -- --port 8080  # custom port
+```
+
+---
+
+## Troubleshooting
+
+### `Failed to load module script: Expected a JavaScript-or-Wasm module script but the server responded with a MIME type of "application/octet-stream"`
+
+The browser refuses to run a module script whose `Content-Type` is not a
+JavaScript type. Almost always this means **the project source is being
+served as static files**: the source `index.html` asks for `/src/main.jsx`,
+and most minimal static servers do not know the `.jsx` extension, so they
+send `application/octet-stream`.
+
+The result is a blank page — every button, including the cart and search,
+appears to be "not working" because the React app never mounted.
+
+**Fix:** run the app the intended way.
+
+```bash
+npm run dev                      # development
+npm run build && npm run serve   # production
+```
+
+Check what a server is actually sending:
+
+```bash
+curl -s -o /dev/null -w '%{http_code}  %{content_type}\n' http://localhost:5173/src/main.jsx
+# dev  -> 200  text/javascript
+# bad  -> 200  application/octet-stream   <-- this is the problem
+```
+
+In the browser: **DevTools → Network → filter "JS" → Response Headers →
+Content-Type**.
+
+### A route other than `/` returns 404
+
+The site is a single-page app, so the server must return `index.html` for any
+path that is not a real file. `npm run serve`, `npm run preview` and the
+included `vercel.json` / `public/_redirects` / `public/.htaccess` all do this.
+A bare `python3 -m http.server` does not.
+
+### The site 404s on assets when hosted in a sub-folder
+
+Build with a base path:
+
+```bash
+BASE_PATH=/crispo/ npm run build
 ```
 
 ---
@@ -113,7 +192,8 @@ src/
 │   ├── ui/                   Button, IconButton, Chip, Tag, Stars, Disclosure, …
 │   ├── sections/             Hero, FeaturesBand, FlavorsBand, ProductGrid, …
 │   └── form/                 Field, ContactForm, ApplicationForm
-└── pages/                    one file per route
+├── pages/                    one file per route
+└── ../scripts/serve.mjs      dependency-free static server for dist/
 ```
 
 ---
@@ -166,14 +246,24 @@ payment is processed.
 
 ## Deployment
 
-The build output is a static SPA. It needs one rule: **serve `index.html` for
-every unknown path** so client-side routes resolve on a hard refresh.
+The build output is a static SPA. It needs two things:
+
+1. **Correct MIME types** — `.js` must be sent as `text/javascript`, or the
+   browser refuses to execute the app.
+2. **An SPA fallback** — serve `index.html` for every path that is not a
+   real file, so client-side routes resolve on a hard refresh.
+
+`npm run serve` already does both, and the configs below ship with the project.
 
 - **Netlify / Cloudflare Pages** — `public/_redirects` is included automatically.
 - **Vercel** — `vercel.json` is included.
+- **Apache** — `public/.htaccess` is included (copy it to `.htaccess`).
 - **nginx** — add:
 
   ```nginx
+  include       mime.types;        # <- without this, .js becomes octet-stream
+  default_type  application/octet-stream;
+
   location / {
     try_files $uri $uri/ /index.html;
   }
@@ -181,3 +271,12 @@ every unknown path** so client-side routes resolve on a hard refresh.
 
 - **Railway / Fly.io / a plain static host** — point the static server at
   `dist/` and set the SPA fallback to `/index.html`.
+
+### Hosting in a sub-folder
+
+If the site will not live at the domain root (e.g. `example.com/crispo/`),
+build with a base path so the asset URLs match:
+
+```bash
+BASE_PATH=/crispo/ npm run build
+```
