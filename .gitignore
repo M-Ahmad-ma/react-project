@@ -1,6 +1,9 @@
 node_modules
 dist
 dist-ssr
+dist-sub
+crispo-deploy.zip
+crispo-deploy.tar.gz
 *.local
 .DS_Store
 .vite

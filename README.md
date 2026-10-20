@@ -255,6 +255,40 @@ The build output is a static SPA. It needs two things:
 
 `npm run serve` already does both, and the configs below ship with the project.
 
+### Netlify
+
+`netlify.toml` is included, so a Git-connected deploy needs **no manual
+settings** — it already declares:
+
+```toml
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "22"
+```
+
+> **The Node version matters.** Vite 8 requires Node `^20.19.0 || >=22.12.0`.
+> If the build runs on an older runtime it fails, `dist/` is never produced,
+> and Netlify falls back to serving the repository root — which is the raw
+> source `index.html` pointing at `/src/main.jsx`. Browsers refuse to run
+> that (it arrives as `application/octet-stream`) and the site renders blank.
+> `.nvmrc` and `netlify.toml` both pin Node 22 so this cannot happen.
+
+**If you used Netlify Drop** (drag and drop) rather than a Git deploy, no
+build is ever run, so you must upload the **built** site, not the project:
+
+```bash
+npm run pack     # builds, then zips dist/ -> crispo-deploy.zip
+```
+
+Then drop `crispo-deploy.zip` at <https://app.netlify.com/drop> (or drag the
+`dist/` folder in directly). Uploading the `react-project/` folder itself
+will always fail this way — it contains the source, not a build.
+
+### Other hosts
+
 - **Netlify / Cloudflare Pages** — `public/_redirects` is included automatically.
 - **Vercel** — `vercel.json` is included.
 - **Apache** — `public/.htaccess` is included (copy it to `.htaccess`).

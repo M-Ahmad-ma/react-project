@@ -1,0 +1,43 @@
+# ==========================================================================
+# Netlify configuration.
+#
+# These settings make a Git-connected deploy work with no manual setup:
+#   build command  -> npm run build
+#   publish folder -> dist
+#
+# The Node version is pinned because Vite 8 requires
+# Node ^20.19.0 || >=22.12.0. Without this, a build on an older runtime
+# fails, dist/ is never produced, and Netlify falls back to serving the
+# repository root — which is the raw source index.html pointing at
+# /src/main.jsx. Browsers refuse to run that (it arrives as
+# application/octet-stream) and the site renders blank.
+# ==========================================================================
+
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "22"
+  NPM_FLAGS = "--no-audit --no-fund"
+
+# --- Single-page-app fallback --------------------------------------------
+# Every client-side route (/flavors, /jobs/:slug, …) resolves to index.html
+# and React Router sorts it out. Real files in dist/ still win.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# --- Caching --------------------------------------------------------------
+# Vite fingerprints filenames, so assets can be cached forever.
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
